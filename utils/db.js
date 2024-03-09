@@ -7,7 +7,8 @@ const url = `mongodb://${HOST}:${PORT}/${DB_DATABASE}`
 class DBClient{
     constructor(){
         this.client = new MongoClient.connect(url, {useUnifiedTopology: true})
-        this.client.then(() => {
+        this.client.then((client) => {
+            this.client = client
             this.db = this.client.db(`${DB_DATABASE}`)
 
         }).catch((error) => {
