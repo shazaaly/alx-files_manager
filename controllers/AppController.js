@@ -40,4 +40,4 @@ class AppController {
 
 }
 
-module.exports = new AppController
+module.exports = AppController
