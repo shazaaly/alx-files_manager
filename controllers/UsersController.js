@@ -1,27 +1,43 @@
 import sha1 from 'sha1';
+import { ObjectID } from 'mongodb';
+import Queue from 'bull';
 import dbClient from '../utils/db';
 
+
 class UsersController {
-  static async postNew(request, response) {
-    const { email, password } = request.body;
+  static postNew(request, response) {
+    const { email } = request.body;
+    const { password } = request.body;
 
     if (!email) {
-      return response.status(400).json({ error: 'Missing email' });
+      response.status(400).json({ error: 'Missing email' });
+      return;
     }
     if (!password) {
-      return response.status(400).json({ error: 'Missing password' });
+      response.status(400).json({ error: 'Missing password' });
+      return;
     }
 
     const users = dbClient.db.collection('users');
-    const user = await users.findOne({ email });
-    if (user) {
-      return response.status(400).json({ error: 'Already exist' });
-    }
-
-    const hashedPassword = sha1(password);
-    const result = await users.insertOne({ email, password: hashedPassword });
-    return response.status(201).json({ id: result.insertedId, email });
+    users.findOne({ email }, (err, user) => {
+      if (user) {
+        response.status(400).json({ error: 'Already exist' });
+      } else {
+        const hashedPassword = sha1(password);
+        users.insertOne(
+          {
+            email,
+            password: hashedPassword,
+          },
+        ).then((result) => {
+          response.status(201).json({ id: result.insertedId, email });
+          userQueue.add({ userId: result.insertedId });
+        }).catch((error) => console.log(error));
+      }
+    });
   }
+
+  
 }
 
-export default UsersController;
+module.exports = UsersController;
