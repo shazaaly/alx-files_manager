@@ -1,5 +1,4 @@
 import sha1 from 'sha1';
-import { ObjectID } from 'mongodb';
 import dbClient from '../utils/db';
 
 
@@ -30,10 +29,12 @@ class UsersController {
           },
         ).then((result) => {
           response.status(201).json({ id: result.insertedId, email });
+          userQueue.add({ userId: result.insertedId });
         }).catch((error) => console.log(error));
       }
     });
   }
+
 
 }
 
