@@ -1,34 +1,36 @@
 const dbClient = require('../utils/db');
-const crypto = require('crypto');
+const sha1 = require('sha1');
 
 class UsersController {
-    static async postNew(request, response) {
-      const { email, password } = request.body;
+    static postNew(request, response) {
+      const { email } = request.body;
+      const { password } = request.body;
   
       if (!email) {
-        return response.status(400).json({ error: 'Missing email' });
+        response.status(400).json({ error: 'Missing email' });
+        return;
       }
       if (!password) {
-        return response.status(400).json({ error: 'Missing password' });
+        response.status(400).json({ error: 'Missing password' });
+        return;
       }
   
-      try {
-        const users = dbClient.db.collection('users');
-        const user = await users.findOne({ email });
-  
+      const users = dbClient.db.collection('users');
+      users.findOne({ email }, (err, user) => {
         if (user) {
-          return response.status(400).json({ error: 'Already exists' });
+          response.status(400).json({ error: 'Already exist' });
+        } else {
+          const hashedPassword = sha1(password);
+          users.insertOne(
+            {
+              email,
+              password: hashedPassword,
+            },
+          ).then((result) => {
+            response.status(201).json({ id: result.insertedId, email });
+          }).catch((error) => console.log(error));
         }
-  
-        const hashedPassword = sha1(password);
-        const result = await users.insertOne({ email, password: hashedPassword });
-  
-        return response.status(201).json({ id: result.insertedId, email });
-      } catch (error) {
-        console.error('Error creating user:', error);
-        return response.status(500).json({ error: 'Internal server error' });
-      }
-    }
-  }
+      });
+    }}
   
   module.exports = UsersController;
