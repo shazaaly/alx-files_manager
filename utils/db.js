@@ -24,11 +24,18 @@ class DBClient{
         return num
 
     }
+    async nbFiles(){
+        const files = this.db.collection('files')
+        const fielsNum = await files.countDocuments()
+        return fielsNum
+
+    }
 
 
 
 
 
 }
+const dbClient = new DBClient()
 
-module.exports = DBClient
+module.exports = dbClient
