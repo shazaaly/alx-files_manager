@@ -1,43 +1,16 @@
-const redisClient = require('./utils/redis');
-const dbClient = require('./utils/db');
+import redisClient from '../utils/redis';
+import dbClient from '../utils/db';
 
 class AppController {
+  static getStatus(request, response) {
+    response.status(200).json({ redis: redisClient.isAlive(), db: dbClient.isAlive() });
+  }
 
-    async getStatus(req, res) {
-        try {
-            const redisActivity = await redisClient.isAlive() ? true : false;
-            const dbActivity = await dbClient.isAlive() ? true : false;
-            return res.status(200).json({
-                "redis": redisActivity,
-                "db": dbActivity
-            });
-        } catch (error) {
-            return res.status(500).json({
-                "redis": false,
-                "db": false
-            });
-        }
-    }
-
-    async getStats(req, res) {
-        try {
-            const usersNum = await dbClient.nbUsers()
-            const filesNum = await dbClient.nbFiles()
-            return res.status(200).json({
-                "users": usersNum, "files": filesNum
-
-            })
-
-        } catch (error) {
-            return res.status(500).json({
-                message: error.message
-            })
-
-        }
-
-
-    }
-
+  static async getStats(request, response) {
+    const usersNum = await dbClient.nbUsers();
+    const filesNum = await dbClient.nbFiles();
+    response.status(200).json({ users: usersNum, files: filesNum });
+  }
 }
 
-module.exports = AppController
+module.exports = AppController;
