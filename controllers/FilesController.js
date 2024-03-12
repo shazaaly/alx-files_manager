@@ -150,41 +150,54 @@ class FilesController {
       return res.status(500).json({ error });
     }
   }
-  static  async getIndex(req, res) {
-    try {
-        const token = req.header('X-Token');
-        if (!token) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
-
-        const parentId = req.query.parentId ? new ObjectID(req.query.parentId) : 0;
-        const userID = await redisClient.get(`auth_${token}`);
-        const userObjectID = new ObjectID(userID);
-        const files = dbClient.db.collection('files');
-
-        const pageSize = 20;
-        const page = parseInt(req.query.page || 0);
-        const skip = page * pageSize;
-
-        const query = { userId: userObjectID };
-        if (parentId) {
-            query.parentId = parentId;
-        }
-
-        const pipeline = [
-            { $match: query },
-            { $sort: { _id: -1 } },
-            { $skip: skip },
-            { $limit: pageSize }
-        ];
-
-        const results = await files.aggregate(pipeline).toArray();
-        return res.status(200).json(results);
-    } catch (error) {
-        console.error(error.message);
-        return res.status(500).json({ error: error.message });
+  static async getIndex(request, response) {
+    const user = await FilesController.getUser(request);
+    if (!user) {
+      return response.status(401).json({ error: 'Unauthorized' });
     }
-}
+    const {
+      parentId,
+      page,
+    } = request.query;
+    const pageNum = page || 0;
+    const files = dbClient.db.collection('files');
+    let query;
+    if (!parentId) {
+      query = { userId: user._id };
+    } else {
+      query = { userId: user._id, parentId: ObjectID(parentId) };
+    }
+    files.aggregate(
+      [
+        { $match: query },
+        { $sort: { _id: -1 } },
+        {
+          $facet: {
+            metadata: [{ $count: 'total' }, { $addFields: { page: parseInt(pageNum, 10) } }],
+            data: [{ $skip: 20 * parseInt(pageNum, 10) }, { $limit: 20 }],
+          },
+        },
+      ],
+    ).toArray((err, result) => {
+      if (result) {
+        const final = result[0].data.map((file) => {
+          const tmpFile = {
+            ...file,
+            id: file._id,
+          };
+          delete tmpFile._id;
+          delete tmpFile.localPath;
+          return tmpFile;
+        });
+        // console.log(final);
+        return response.status(200).json(final);
+      }
+      console.log('Error occured');
+      return response.status(404).json({ error: 'Not found' });
+    });
+    return null;
+  }
+
 }
 
 module.exports = FilesController;
