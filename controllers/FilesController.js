@@ -1,7 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { promises as fs } from 'fs';
 import { ObjectID } from 'mongodb';
-import mime from 'mime-types';
 import Queue from 'bull';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
@@ -84,7 +83,7 @@ class FilesController {
         try {
           await fs.mkdir(filePath);
         } catch (error) {
-        // pass. Error raised when file already exists
+          // pass. Error raised when file already exists
         }
         await fs.writeFile(fileName, buff, 'utf-8');
       } catch (error) {
@@ -121,8 +120,73 @@ class FilesController {
       }).catch((error) => console.log(error));
     }
     return null;
-  } 
-  
+  }
+
+  static async getShow(req, res) {
+    try {
+      const token = req.header('X-Token');
+      if (!token) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      const userID = await redisClient.get(`auth_${token}`);
+      const userObjectID = new ObjectID(userID);
+      const files = dbClient.db.collection('files');
+      const fileID = new ObjectID(req.params.id);
+      const file = await files.findOne({ _id: fileID, userId: userObjectID });
+      if (!file) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+      return res.status(200).json({
+        id: file._id,
+        userId: file.userId,
+        name: file.name,
+        type: file.type,
+        isPublic: file.isPublic,
+        parentId: file.parentId,
+
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(500).json({ error });
+    }
+  }
+
+  static async getIndex(req, res) {
+    try {
+      const token = req.header('X-Token');
+      if (!token) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      const parentId = req.query.parentId ? new ObjectID(req.query.parentId) : 0;      // if (!parentId) {
+      //   return []
+
+      // }
+      const userID = await redisClient.get(`auth_${token}`);
+      const userObjectID = new ObjectID(userID);
+      const files = dbClient.db.collection('files');
+      const pageSize = 20;
+      const page = req.query.page || 0;
+      const skip = page * pageSize;
+      const pipline = [
+        
+          {$match: { parentId: Number(parentId), userId: userObjectID }},
+          {$limit: pageSize},
+          {$skip: skip}
+        
+
+      ]
+      const results = await files.aggregate(pipline).toArray()
+      return res.status(200).json(results);
+    } catch (error) {
+      console.log(error.message);
+      return res.status(500).json({ error:error.message });
+    }
+
+
+
+
+
+  }
 }
 
 module.exports = FilesController;
