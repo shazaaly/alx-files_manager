@@ -1,6 +1,10 @@
 const dbClient = require('../utils/db');
 const redisClient = require('../utils/redis');
+const { v4: uuidv4 } = require('uuid');
+const { ObjectID } = require('mongodb');
 const fs = require('fs');
+const Queue = require('bull/lib/queue');
+const fileQueue = new Queue('fileQueue', 'redis://127.0.0.1:6379');
 
 
 class FilesController{
@@ -41,31 +45,41 @@ class FilesController{
         }
         
         const files = dbClient.db.collection('files');
-        const parentFile = await files.findOne({ _id: parentId });
-        if (!parentFile) {
-            return res.status(400).json({ error: 'Parent not found' });
-        }
-        if (parentFile.type !== 'folder') {
+        const parentObjectId =  ObjectID(parentObjectId)
+        const parentFile = await files.findOne({ _id: parentObjectId });
+        if (parentFile && parentFile.type !== 'folder') {
             return res.status(400).json({ error: 'Parent is not a folder' });
         }
+        if (type === 'image') {
+          fileQueue.add({ 
+            userId: user._id, 
+            imageID: result.insertedId 
+          }).catch((error) => console.log(error));
+        }
+
         if (type == 'folder') {
             files.insertOne({
                 userId: user._id,
                 name,
                 type,
                 isPublic,
-                parentId : parentFile._id || 0
+                parentId : parentObjectId || 0
             });
             return res.status(201).json({
                 userId: user._id,
                 name,
                 type,
                 isPublic,
-                parentId : parentFile._id || 0
+                parentId : parentObjectId|| 0
             });
             
         }else{
-            const path = process.env.FOLDER_PATH || '/tmp/files_manager';
+            const dir = '/tmp/files_manager'
+            // check if the folder exists
+            if (!fs.existsSync(dir)){
+              fs.mkdirSync(dir, { recursive: true });
+          }
+            const path = process.env.FOLDER_PATH || dir;
             const fileName = uuidv4();
             const filePath = `${path}/${fileName}`;
             const buff = Buffer.from(data, 'base64');
@@ -79,7 +93,7 @@ class FilesController{
                 name,
                 type,
                 isPublic,
-                parentId : parentFile._id || 0,
+                parentId : parentObjectId || 0,
                 localPath: filePath
             });
             return res.status(201).json({
@@ -87,15 +101,13 @@ class FilesController{
                 name,
                 type,
                 isPublic,
-                parentId : parentFile._id || 0,
+                parentId : parentObjectId|| 0,
                 localPath: filePath
             });
-
-
-
-
-
         }
+        
+        
+
 
       }
 
