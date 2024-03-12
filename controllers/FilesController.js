@@ -150,43 +150,41 @@ class FilesController {
       return res.status(500).json({ error });
     }
   }
-
-  static async getIndex(req, res) {
+  static  async getIndex(req, res) {
     try {
-      const token = req.header('X-Token');
-      if (!token) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-      const parentId = req.query.parentId ? new ObjectID(req.query.parentId) : 0;      // if (!parentId) {
-      //   return []
+        const token = req.header('X-Token');
+        if (!token) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-      // }
-      const userID = await redisClient.get(`auth_${token}`);
-      const userObjectID = new ObjectID(userID);
-      const files = dbClient.db.collection('files');
-      const pageSize = 20;
-      const page = req.query.page || 0;
-      const skip = page * pageSize;
-      const pipline = [
-        
-          {$match: { parentId: Number(parentId), userId: userObjectID }},
-          {$limit: pageSize},
-          {$skip: skip}
-        
+        const parentId = req.query.parentId ? new ObjectID(req.query.parentId) : 0;
+        const userID = await redisClient.get(`auth_${token}`);
+        const userObjectID = new ObjectID(userID);
+        const files = dbClient.db.collection('files');
 
-      ]
-      const results = await files.aggregate(pipline).toArray()
-      return res.status(200).json(results);
+        const pageSize = 20;
+        const page = parseInt(req.query.page || 0);
+        const skip = page * pageSize;
+
+        const query = { userId: userObjectID };
+        if (parentId) {
+            query.parentId = parentId;
+        }
+
+        const pipeline = [
+            { $match: query },
+            { $sort: { _id: -1 } },
+            { $skip: skip },
+            { $limit: pageSize }
+        ];
+
+        const results = await files.aggregate(pipeline).toArray();
+        return res.status(200).json(results);
     } catch (error) {
-      console.log(error.message);
-      return res.status(500).json({ error:error.message });
+        console.error(error.message);
+        return res.status(500).json({ error: error.message });
     }
-
-
-
-
-
-  }
+}
 }
 
 module.exports = FilesController;
