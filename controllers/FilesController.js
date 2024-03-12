@@ -171,31 +171,25 @@ class FilesController {
       [
         { $match: query },
         { $sort: { _id: -1 } },
-        {
-          $facet: {
-            metadata: [{ $count: 'total' }, { $addFields: { page: parseInt(pageNum, 10) } }],
-            data: [{ $skip: 20 * parseInt(pageNum, 10) }, { $limit: 20 }],
-          },
-        },
+
       ],
-    ).toArray((err, result) => {
-      if (result) {
-        const final = result[0].data.map((file) => {
-          const tmpFile = {
-            ...file,
-            id: file._id,
-          };
-          delete tmpFile._id;
-          delete tmpFile.localPath;
-          return tmpFile;
-        });
-        // console.log(final);
-        return response.status(200).json(final);
-      }
-      console.log('Error occured');
-      return response.status(404).json({ error: 'Not found' });
-    });
-    return null;
+    ).toArray
+      ((err, result) => {
+        if (err) {
+          console.log(err);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        }
+        const filesArray = result.map((file) => ({
+          id: file._id,
+          userId: file.userId,
+          name: file.name,
+          type: file.type,
+          isPublic: file.isPublic,
+          parentId: file.parentId,
+        }));
+        return response.status(200).json(filesArray);
+      });
+
   }
 
 }
