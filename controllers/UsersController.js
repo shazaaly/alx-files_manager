@@ -1,6 +1,7 @@
 import sha1 from 'sha1';
 import dbClient from '../utils/db';
-import { RedisClient } from 'redis';
+const RedisClient = require('../utils/redis');
+const { ObjectId } = require('mongodb');
 
 class UsersController {
   static postNew(request, response) {
@@ -29,33 +30,49 @@ class UsersController {
           },
         ).then((result) => {
           response.status(201).json({ id: result.insertedId, email });
-          userQueue.add({ userId: result.insertedId });
+
         }).catch((error) => console.log(error));
       }
     });
   }
 
   static async getMe(req, res){
-    const token  = req.headers['X-Token']
-    if (!token) {
-      return res.status(401).json({ error: 'Unauthorized' });
-      
-    }else{
-      const id = await RedisClient.get(`auth_${token}`)
-      if (id) {
-        const usersCollection = dbClient.db.collection('users')
-        const user = await usersCollection.findOne({_id: ObjectId(id)})
-        if (user) {
-          res.status(200).json({ id: user._id, email: user.email });
-        } else {
-          res.status(401).json({ error: 'Unauthorized' });
-        }
-
+    try {
+      const token  = req.headers['x-token']
+      console.log(req.headers);
+      console.log(token);
+      if (!token) {
+        return res.status(401).json({ error: 'Unauthorized' });
         
+      }else{
+        const id = await RedisClient.get(`auth_${token}`)
+  
+        if (id) {
+          const usersCollection = dbClient.db.collection('users')
+          const user = await usersCollection.findOne({_id: ObjectId(id)})
+          if (user) {
+            res.status(200).json({ id: user._id, email: user.email });
+          } else {
+            res.status(401).json({ error: 'Unauthorized' });
+          }
+  
+          
+        }
+        else{
+          res.status(401).json({ error: 'Unauthorized' });
+
+
+        }
+  
+  
       }
-
-
+      
+    } catch (error) {
+      console.log(error)
+      res.status(401).json({ error: 'Unauthorized' });
+      
     }
+   
   }
 }
 
