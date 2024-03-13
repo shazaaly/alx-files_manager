@@ -242,7 +242,7 @@ class FilesController {
     });
   }
 
-  tatic async putPublish(request, response) {
+  static async putPublish(request, response) {
     const user = await FilesController.getUser(request);
     if (!user) {
       return response.status(401).json({ error: 'Unauthorized' });
