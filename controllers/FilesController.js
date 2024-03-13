@@ -273,6 +273,38 @@ class FilesController {
 
 
   }
+
+  static async putUnpublish(req, res) {
+    const fileID = req.params.id;
+    const objFileId = new ObjectID(fileID);
+    const token = req.header('X-Token');
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized' });
+      
+    }
+    const userID = await redisClient.get(`auth_${token}`);
+    const objUserId = new ObjectID(userID);
+    const filesCollection = dbClient.db.collection('files');
+    try {
+      const file = await filesCollection.findOneAndUpdate(
+        {
+          _id: objFileId,
+          userId: objUserId,
+        },
+        { $set: { isPublic: false}},
+        { returnOriginal: false }
+      )
+      return res.status(200).json(file);
+      
+    } catch (error) {
+      console.log(error);
+      return res.status(404).json({ error: 'Not found' });
+      
+    }
+   
+
+
+  }
 }
 
 module.exports = FilesController;
